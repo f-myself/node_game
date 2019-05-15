@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Game Node JS</title>
+</head>
+<body>
+    <style>
+        .player {
+            width: 50px;
+            height: 50px;
+            position: absolute;
+            /* background-color: deeppink; */
+        }
+    </style>
+    <h1>Hello HTML</h1>
+    <div id="app">
+        <div class="player" :key="player.id" :style="{
+            backgroundColor: player.color,
+            top: player.position.top + 'px',
+            left: player.position.left + 'px'
+        }" v-for="player in players">
+
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.6.10/dist/vue.js"></script>
+    <script>
+        var game = new Vue({
+            el: '#app',
+            data: function() {
+                return {
+                    players: {},
+                    online: false
+                }
+            },
+            created() {
+                this.connect();
+
+                document.addEventListener('keydown', (event) => {
+                    console.log(event);
+                    if(event.code.indexOf('Arrow') != -1) {
+                        var json_data = JSON.stringify({
+                            type: 'move',
+                            info: event.code.replace('Arrow', '')
+                         });
+                        this.wsClient.send(json_data);
+                    }
+                    
+                })
+            },
+            methods: {
+                connect: function() {
+                    this.wsClient = new WebSocket('ws://10.20.106.201:5555');
+
+                    this.wsClient.addEventListener('open', () => {
+                        this.online = true;
+                    });
+                    this.wsClient.addEventListener('close', () => {
+                        this.online = false;
+                    });
+                    this.wsClient.addEventListener('error', () => {});
+                    this.wsClient.addEventListener('message', (mes) => {
+                        try {
+                            var data = JSON.parse(mes.data); // Парсинг JSON
+                            this.messageHandler(data); // Обработка данных
+                        } catch (e) {}
+                    });
+                },
+                messageHandler: function(message) {
+                    switch(message.type) {
+                        case "new_player":
+                            var player = message.info;
+                            // Добавление нового свойства в объект data: players
+                            this.$set(this.players, player.id, player);
+                            break;
+                        
+                        case "all_players":
+                            var players = message.info;
+                            this.$set(this, 'players', players);
+                            break;
+
+                        case "remove_player":
+                            var id = message.info;
+                            this.$delete(this.players, id);
+                            break;
+
+                        case "update_player":
+                            var player = message.info;
+                            this.$set(this.players, player.id, player);
+                            break;
+                    }
+                }
+            }
+        });
+
+
+    </script>
+    <script type="noscript">
+
+        var count = 0;
+        // Создаём подключение к серверу
+        var wsClient = new WebSocket('ws://localhost:5555');
+        
+        // Слушаем сообщения от сервера
+        wsClient.addEventListener('message', (message) => {
+            document.querySelector('#message').innerHTML = count + ' ' + message.data;
+            count++;
+        })
+
+        setInterval(() => {
+            wsClient.send('ping');
+        }, 1000);
+    </script>
+</body>
+</html>
